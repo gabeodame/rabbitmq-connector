@@ -1,0 +1,29 @@
+{
+  "name": "@anchordiv/rabbitmq-broker",
+  "version": "1.0.0",
+  "description": "A reusable RabbitMQ broker library",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepare": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "rabbitmq",
+    "broker",
+    "messaging"
+  ],
+  "author": "Gabriel Odame",
+  "license": "MIT",
+  "dependencies": {
+    "amqplib": "^0.10.3"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.6",
+    "typescript": "^5.0.0"
+  }
+}
