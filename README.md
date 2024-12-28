@@ -172,41 +172,78 @@ await broker.setupDeadLetterQueue(
 
 ## API Reference
 
-### `RabbitMQBroker.getInstance()`
+### Core Methods
 
-Returns the singleton instance of the `RabbitMQBroker`.
+- **`RabbitMQBroker.getInstance(): RabbitMQBroker`**  
+  Returns the singleton instance of the `RabbitMQBroker`.
 
-### `init(url: string): Promise<void>`
+- **`init(url: string): Promise<void>`**  
+  Initializes the RabbitMQ connection and channel.  
+  **Parameters:**
+  - `url` *(string)*: The RabbitMQ connection URL.
 
-Initializes the RabbitMQ connection and channel.
+---
 
-### `publish(queue: string, message: Buffer | string, options?: Options.Publish): Promise<void>`
+### Publishing Methods
 
-Publishes a message directly to a queue.
+- **`publish(queue: string, message: Buffer | string, options?: Options.Publish): Promise<void>`**  
+  Publishes a message directly to a queue.  
+  **Parameters:**
+  - `queue` *(string)*: The name of the queue.
+  - `message` *(Buffer | string)*: The message to send.
+  - `options` *(Options.Publish, optional)*: Additional options for publishing.
 
-### `publishToExchange(exchange: string, routingKey: string, message: Buffer | string, type?: string, options?: Options.Publish): Promise<void>`
+- **`publishToExchange(exchange: string, routingKey: string, message: Buffer | string, type?: string, options?: Options.Publish): Promise<void>`**  
+  Publishes a message to a specified exchange with a routing key.  
+  **Parameters:**
+  - `exchange` *(string)*: The name of the exchange.
+  - `routingKey` *(string)*: The routing key for the message.
+  - `message` *(Buffer | string)*: The message to send.
+  - `type` *(string, optional)*: Exchange type (`"direct"`, `"topic"`, `"fanout"`, `"headers"`). Defaults to `"topic"`.
+  - `options` *(Options.Publish, optional)*: Additional options for publishing.
 
-Publishes a message to a specified exchange with a routing key.
+---
 
-### `setupQueue(queue: string, options?: Options.AssertQueue): Promise<void>`
+### Queue and Consumer Methods
 
-Creates a queue with optional configurations.
+- **`setupQueue(queue: string, options?: Options.AssertQueue): Promise<void>`**  
+  Creates a queue with optional configurations.  
+  **Parameters:**
+  - `queue` *(string)*: The name of the queue.
+  - `options` *(Options.AssertQueue, optional)*: Configuration options for the queue.
 
-### `consume(queue: string, onMessage: (msg: Message) => Promise<void>): Promise<void>`
+- **`consume(queue: string, onMessage: (msg: Message) => Promise<void>): Promise<void>`**  
+  Consumes messages from a specified queue.  
+  **Parameters:**
+  - `queue` *(string)*: The name of the queue.
+  - `onMessage` *(function)*: A callback function to process received messages.
 
-Consumes messages from a specified queue.
+- **`bindQueue(queue: string, exchange: string, routingKey: string): Promise<void>`**  
+  Binds a queue to a specified exchange with a routing key.  
+  **Parameters:**
+  - `queue` *(string)*: The name of the queue.
+  - `exchange` *(string)*: The name of the exchange.
+  - `routingKey` *(string)*: The routing key for binding.
 
-### `bindQueue(queue: string, exchange: string, routingKey: string): Promise<void>`
+---
 
-Binds a queue to a specified exchange with a routing key.
+### Advanced Methods
 
-### `setupDeadLetterQueue(queue: string, dlx: string, dlq: string, dlxType?: string): Promise<void>`
+- **`setupDeadLetterQueue(queue: string, dlx: string, dlq: string, dlxType?: string): Promise<void>`**  
+  Sets up a dead-letter queue and binds it to the main queue.  
+  **Parameters:**
+  - `queue` *(string)*: The primary queue name.
+  - `dlx` *(string)*: The dead-letter exchange name.
+  - `dlq` *(string)*: The dead-letter queue name.
+  - `dlxType` *(string, optional)*: Exchange type (`"direct"`, `"topic"`, `"fanout"`, `"headers"`). Defaults to `"topic"`.
 
-Sets up a dead-letter queue and binds it to the main queue.
+---
 
-### `closeConnection(): Promise<void>`
+### Utility Method
 
-Closes the RabbitMQ connection and channel.
+- **`closeConnection(): Promise<void>`**  
+  Closes the RabbitMQ connection and channel.
+
 
 ---
 
