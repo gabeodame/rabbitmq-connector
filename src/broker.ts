@@ -74,6 +74,12 @@ class RabbitMQBroker {
     }
   }
 
+  /**
+   * Asserts an exchange.
+   * @param exchange - The exchange name.
+   * @param type - The type of the exchange.
+   * @param options - Additional exchange options.
+   */
   public async assertExchange(
     exchange: string,
     type: "direct" | "topic" | "fanout" | "headers",
@@ -95,46 +101,9 @@ class RabbitMQBroker {
   }
 
   /**
-   * Publishes a message to a specified exchange with a routing key.
-   * @param exchange - The exchange name.
-   * @param routingKey - The routing key.
-   * @param message - The message to publish.
-   * @param options - Additional publish options.
-   */
-  public async publishToExchange(
-    exchange: string,
-    routingKey: string,
-    message: Buffer | string,
-    type: "direct" | "topic" | "fanout" | "headers" = "topic", // Default to "topic"
-    options: Options.Publish = {}
-  ): Promise<void> {
-    if (!this.channel) {
-      throw new Error(
-        "RabbitMQ channel is not initialized. Call init() first."
-      );
-    }
-
-    try {
-      await this.assertExchange(exchange, type, { durable: true });
-      this.channel.publish(
-        exchange,
-        routingKey,
-        Buffer.isBuffer(message) ? message : Buffer.from(message),
-        options
-      );
-      console.log(
-        `Message published to exchange: ${exchange}, routingKey: ${routingKey}, type: ${type}`
-      );
-    } catch (err) {
-      console.error("Failed to publish message to exchange:", err);
-      throw err;
-    }
-  }
-
-  /**
-   * Sets up a queue with an optional dead-letter exchange.
+   * Sets up a queue with optional arguments.
    * @param queue - The queue name.
-   * @param options - Queue options (including dead-letter configurations).
+   * @param options - Queue options.
    */
   public async setupQueue(
     queue: string,
@@ -223,12 +192,15 @@ class RabbitMQBroker {
    * @param queue - The primary queue name.
    * @param dlx - The dead-letter exchange name.
    * @param dlq - The dead-letter queue name.
+   * @param dlxType - The type of the dead-letter exchange (default: "topic").
+   * @param dlqRoutingKey - The routing key for dead-lettered messages (default: "#").
    */
   public async setupDeadLetterQueue(
     queue: string,
     dlx: string,
     dlq: string,
-    dlxType: "direct" | "topic" | "fanout" | "headers" = "topic" // Default to "topic"
+    dlxType: "direct" | "topic" | "fanout" | "headers" = "topic",
+    dlqRoutingKey: string = "#" // Default to all messages
   ): Promise<void> {
     if (!this.channel) {
       throw new Error(
@@ -240,16 +212,18 @@ class RabbitMQBroker {
       // Assert the dead-letter exchange and queue
       await this.channel.assertExchange(dlx, dlxType, { durable: true });
       await this.channel.assertQueue(dlq, { durable: true });
-      await this.channel.bindQueue(dlq, dlx, "#"); // Bind all messages to DLQ
+      await this.channel.bindQueue(dlq, dlx, dlqRoutingKey); // Bind using provided routing key
 
       // Assert the primary queue with dead-letter exchange configuration
       await this.channel.assertQueue(queue, {
         durable: true,
-        deadLetterExchange: dlx,
+        arguments: {
+          "x-dead-letter-exchange": dlx, // Ensure DLX is set
+        },
       });
 
       console.log(
-        `Dead-letter queue set up: ${dlq} bound to exchange: ${dlx}, type: ${dlxType}`
+        `Dead-letter queue set up: ${dlq} bound to exchange: ${dlx}, type: ${dlxType}, routingKey: ${dlqRoutingKey}`
       );
     } catch (err) {
       console.error(`Failed to set up dead-letter queue for ${queue}:`, err);

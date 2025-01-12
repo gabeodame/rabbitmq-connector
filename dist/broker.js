@@ -75,6 +75,12 @@ class RabbitMQBroker {
             }
         });
     }
+    /**
+     * Asserts an exchange.
+     * @param exchange - The exchange name.
+     * @param type - The type of the exchange.
+     * @param options - Additional exchange options.
+     */
     assertExchange(exchange_1, type_1) {
         return __awaiter(this, arguments, void 0, function* (exchange, type, options = { durable: true }) {
             if (!this.channel) {
@@ -91,33 +97,9 @@ class RabbitMQBroker {
         });
     }
     /**
-     * Publishes a message to a specified exchange with a routing key.
-     * @param exchange - The exchange name.
-     * @param routingKey - The routing key.
-     * @param message - The message to publish.
-     * @param options - Additional publish options.
-     */
-    publishToExchange(exchange_1, routingKey_1, message_1) {
-        return __awaiter(this, arguments, void 0, function* (exchange, routingKey, message, type = "topic", // Default to "topic"
-        options = {}) {
-            if (!this.channel) {
-                throw new Error("RabbitMQ channel is not initialized. Call init() first.");
-            }
-            try {
-                yield this.assertExchange(exchange, type, { durable: true });
-                this.channel.publish(exchange, routingKey, Buffer.isBuffer(message) ? message : Buffer.from(message), options);
-                console.log(`Message published to exchange: ${exchange}, routingKey: ${routingKey}, type: ${type}`);
-            }
-            catch (err) {
-                console.error("Failed to publish message to exchange:", err);
-                throw err;
-            }
-        });
-    }
-    /**
-     * Sets up a queue with an optional dead-letter exchange.
+     * Sets up a queue with optional arguments.
      * @param queue - The queue name.
-     * @param options - Queue options (including dead-letter configurations).
+     * @param options - Queue options.
      */
     setupQueue(queue_1) {
         return __awaiter(this, arguments, void 0, function* (queue, options = {}) {
@@ -191,9 +173,11 @@ class RabbitMQBroker {
      * @param queue - The primary queue name.
      * @param dlx - The dead-letter exchange name.
      * @param dlq - The dead-letter queue name.
+     * @param dlxType - The type of the dead-letter exchange (default: "topic").
+     * @param dlqRoutingKey - The routing key for dead-lettered messages (default: "#").
      */
     setupDeadLetterQueue(queue_1, dlx_1, dlq_1) {
-        return __awaiter(this, arguments, void 0, function* (queue, dlx, dlq, dlxType = "topic" // Default to "topic"
+        return __awaiter(this, arguments, void 0, function* (queue, dlx, dlq, dlxType = "topic", dlqRoutingKey = "#" // Default to all messages
         ) {
             if (!this.channel) {
                 throw new Error("RabbitMQ channel is not initialized. Call init() first.");
@@ -202,13 +186,15 @@ class RabbitMQBroker {
                 // Assert the dead-letter exchange and queue
                 yield this.channel.assertExchange(dlx, dlxType, { durable: true });
                 yield this.channel.assertQueue(dlq, { durable: true });
-                yield this.channel.bindQueue(dlq, dlx, "#"); // Bind all messages to DLQ
+                yield this.channel.bindQueue(dlq, dlx, dlqRoutingKey); // Bind using provided routing key
                 // Assert the primary queue with dead-letter exchange configuration
                 yield this.channel.assertQueue(queue, {
                     durable: true,
-                    deadLetterExchange: dlx,
+                    arguments: {
+                        "x-dead-letter-exchange": dlx, // Ensure DLX is set
+                    },
                 });
-                console.log(`Dead-letter queue set up: ${dlq} bound to exchange: ${dlx}, type: ${dlxType}`);
+                console.log(`Dead-letter queue set up: ${dlq} bound to exchange: ${dlx}, type: ${dlxType}, routingKey: ${dlqRoutingKey}`);
             }
             catch (err) {
                 console.error(`Failed to set up dead-letter queue for ${queue}:`, err);

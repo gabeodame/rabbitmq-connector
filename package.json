@@ -1,7 +1,7 @@
 {
-  "name": "@anchordiv/rabbitmq-broker",
-  "version": "1.0.2",
-  "description": "A reusable RabbitMQ broker library",
+  "name": "rabbitmq-connector",
+  "version": "1.0.3",
+  "description": "A reusable RabbitMQ broker library for Node.js applications",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "publishConfig": {
@@ -9,17 +9,22 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/gabeodame/rabbitmq-broker.git"
+    "url": "https://github.com/anchordiv/rabbitmq-connector.git"
   },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "prepare": "npm run clean && npm run build"
+    "prepare": "npm run clean && npm run build",
+    "version": "npm run build && git add .",
+    "prepublishOnly": "npm test && npm audit",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "rabbitmq",
     "broker",
-    "messaging"
+    "messaging",
+    "amqp",
+    "nodejs"
   ],
   "author": "Gabriel Odame",
   "license": "MIT",

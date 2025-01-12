@@ -20,20 +20,17 @@ declare class RabbitMQBroker {
      * @param options - Additional publish options.
      */
     publish(queue: string, message: Buffer | string, options?: Options.Publish): Promise<void>;
+    /**
+     * Asserts an exchange.
+     * @param exchange - The exchange name.
+     * @param type - The type of the exchange.
+     * @param options - Additional exchange options.
+     */
     assertExchange(exchange: string, type: "direct" | "topic" | "fanout" | "headers", options?: Options.AssertExchange): Promise<void>;
     /**
-     * Publishes a message to a specified exchange with a routing key.
-     * @param exchange - The exchange name.
-     * @param routingKey - The routing key.
-     * @param message - The message to publish.
-     * @param options - Additional publish options.
-     */
-    publishToExchange(exchange: string, routingKey: string, message: Buffer | string, type?: "direct" | "topic" | "fanout" | "headers", // Default to "topic"
-    options?: Options.Publish): Promise<void>;
-    /**
-     * Sets up a queue with an optional dead-letter exchange.
+     * Sets up a queue with optional arguments.
      * @param queue - The queue name.
-     * @param options - Queue options (including dead-letter configurations).
+     * @param options - Queue options.
      */
     setupQueue(queue: string, options?: Options.AssertQueue): Promise<void>;
     /**
@@ -54,8 +51,10 @@ declare class RabbitMQBroker {
      * @param queue - The primary queue name.
      * @param dlx - The dead-letter exchange name.
      * @param dlq - The dead-letter queue name.
+     * @param dlxType - The type of the dead-letter exchange (default: "topic").
+     * @param dlqRoutingKey - The routing key for dead-lettered messages (default: "#").
      */
-    setupDeadLetterQueue(queue: string, dlx: string, dlq: string, dlxType?: "direct" | "topic" | "fanout" | "headers"): Promise<void>;
+    setupDeadLetterQueue(queue: string, dlx: string, dlq: string, dlxType?: "direct" | "topic" | "fanout" | "headers", dlqRoutingKey?: string): Promise<void>;
     /**
      * Closes the RabbitMQ connection and channel.
      */

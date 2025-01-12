@@ -1,20 +1,20 @@
 
 # @anchordiv/rabbitmq-broker
 
-A simple and flexible RabbitMQ singleton wrapper for Node.js applications. This package provides an easy-to-use interface for connecting to RabbitMQ, publishing messages to queues or exchanges, and consuming messages. It supports durable queues, dead-letter queues, and exchange-based routing with various exchange types.
+A robust and flexible RabbitMQ singleton wrapper for Node.js applications. This package simplifies RabbitMQ integration by providing an easy-to-use API for connecting, publishing, and consuming messages. It supports durable queues, dead-letter queues (DLQs), and exchange-based routing with multiple exchange types.
 
-This package is **framework-agnostic** and can be seamlessly integrated with any Node.js framework, including **Express**, **NestJS**, or other custom Node.js setups.
+This package is **framework-agnostic** and integrates seamlessly with any Node.js framework, including **Express**, **NestJS**, or custom setups.
 
 ---
 
 ## Features
 
-- Singleton pattern to ensure a single RabbitMQ connection per application.
-- Publish messages directly to queues or exchanges with routing keys.
-- Consume messages with built-in acknowledgment handling.
-- Support for durable queues and dead-letter exchanges.
-- Works with any Node.js framework, including Express, NestJS, and more.
-- Designed to integrate seamlessly with microservices architectures.
+- **Singleton Pattern**: Ensures a single RabbitMQ connection per application.
+- **Publish/Consume**: Simplified methods for publishing to queues or exchanges and consuming messages.
+- **Dead-Letter Support**: Automatic setup of DLQs with flexible binding.
+- **Exchange Types**: Supports `"direct"`, `"topic"`, `"fanout"`, and `"headers"`.
+- **Customizable**: Fully configurable routing keys, queue options, and more.
+- **Framework Agnostic**: Works with any Node.js framework.
 
 ---
 
@@ -28,17 +28,17 @@ npm install @anchordiv/rabbitmq-broker
 
 ## Setup
 
-1. Ensure RabbitMQ is running and accessible.
-2. Set the RabbitMQ connection URL in your environment variables:
+1. **Install RabbitMQ**: Ensure RabbitMQ is running and accessible.
+2. **Set Connection URL**: Add your RabbitMQ connection URL to your environment variables:
 
    ```bash
-   # You can set the RabbitMQ connection URL as an environment variable:
+   export RABBITMQ_URL=amqp://username:password@host:port
+   ```
 
-    export RABBITMQ_URL=amqp://username:password@host:port
+   Alternatively, use a `.env` file for configuration:
 
-    # Alternatively, you can add it to your .env file for better maintainability
-
-    RABBITMQ_URL=amqp://username:password@host:port
+   ```plaintext
+   RABBITMQ_URL=amqp://username:password@host:port
    ```
 
 ---
@@ -46,8 +46,6 @@ npm install @anchordiv/rabbitmq-broker
 ## Usage
 
 ### 1. Initialize the Broker
-
-Before using the broker, initialize it with the RabbitMQ connection URL.
 
 ```typescript
 import RabbitMQBroker from "@anchordiv/rabbitmq-broker";
@@ -60,7 +58,7 @@ await broker.init(process.env.RABBITMQ_URL!);
 
 ### 2. Publish Messages
 
-#### Publish Directly to a Queue
+#### Publish to a Queue
 
 ```typescript
 await broker.publish("my_queue", JSON.stringify({ example: "data" }));
@@ -73,7 +71,7 @@ await broker.publishToExchange(
   "my_exchange",
   "my.routing.key",
   JSON.stringify({ example: "data" }),
-  "topic" // Exchange type: "direct", "topic", "fanout", or "headers"
+  "topic"
 );
 ```
 
@@ -81,72 +79,42 @@ await broker.publishToExchange(
 
 ### 3. Consume Messages
 
-#### Consume Messages Published to an Exchange
-
-To consume messages published to an exchange, you must set up a queue, bind it to the exchange, and then consume the messages.
+#### Consume from a Queue
 
 ```typescript
-import RabbitMQBroker from "@anchordiv/rabbitmq-broker";
-
-(async () => {
-  const broker = RabbitMQBroker.getInstance();
-  await broker.init(process.env.RABBITMQ_URL!);
-
-  const exchange = "recipe.users.profile-updates";
-  const queue = "user-signup-queue";
-  const routingKey = "users.signup.new-user";
-
-  // Step 1: Set up the queue
-  await broker.setupQueue(queue, { durable: true });
-
-  // Step 2: Bind the queue to the exchange with the routing key
-  await broker.bindQueue(queue, exchange, routingKey);
-
-  // Step 3: Consume messages from the queue
-  await broker.consume(queue, async (msg) => {
-    const data = JSON.parse(msg.content.toString());
-    console.log("Message received:", data);
-
-    // Process the message
-  });
-
-  console.log(`Consumer set up for queue: ${queue}, exchange: ${exchange}, routingKey: ${routingKey}`);
-})();
+await broker.consume("my_queue", async (msg) => {
+  const data = JSON.parse(msg.content.toString());
+  console.log("Message received:", data);
+});
 ```
 
-#### Direct Queue Consumption Example
+#### Consume with Dead-Letter Support
 
-For direct consumption from a queue without an exchange:
+Set up a queue and its associated DLQ:
 
 ```typescript
-import RabbitMQBroker from "@anchordiv/rabbitmq-broker";
+await broker.setupDeadLetterQueue(
+  "primary_queue",
+  "my_dead_letter_exchange",
+  "my_dead_letter_queue",
+  "topic",
+  "optional.routing.key" // Optional custom routing key for DLQ binding
+);
 
-(async () => {
-  const broker = RabbitMQBroker.getInstance();
-  await broker.init(process.env.RABBITMQ_URL!);
+await broker.consume("primary_queue", async (msg) => {
+  const data = JSON.parse(msg.content.toString());
+  console.log("Message received:", data);
+});
 
-  const queue = "direct-queue-example";
-
-  // Step 1: Set up the queue
-  await broker.setupQueue(queue, { durable: true });
-
-  // Step 2: Consume messages from the queue
-  await broker.consume(queue, async (msg) => {
-    const data = JSON.parse(msg.content.toString());
-    console.log("Message received:", data);
-
-    // Process the message
-  });
-
-  console.log(`Consumer set up for direct queue: ${queue}`);
-})();
+await broker.consume("my_dead_letter_queue", async (msg) => {
+  const data = JSON.parse(msg.content.toString());
+  console.error("Dead-lettered message:", data);
+});
 ```
 
 ---
 
 ### 4. Set Up a Queue with Dead-Letter Support
-
-Use `setupQueue` to create a durable queue and optionally configure a dead-letter exchange.
 
 ```typescript
 await broker.setupQueue("primary_queue", {
@@ -157,15 +125,10 @@ await broker.setupQueue("primary_queue", {
 });
 ```
 
-Set up the dead-letter exchange and queue:
+Bind the queue to an exchange with a routing key:
 
 ```typescript
-await broker.setupDeadLetterQueue(
-  "primary_queue",
-  "my_dead_letter_exchange",
-  "my_dead_letter_queue",
-  "topic"
-);
+await broker.bindQueue("primary_queue", "my_exchange", "my.routing.key");
 ```
 
 ---
@@ -179,63 +142,57 @@ await broker.setupDeadLetterQueue(
 
 - **`init(url: string): Promise<void>`**  
   Initializes the RabbitMQ connection and channel.  
-  **Parameters:**
-  - `url` *(string)*: The RabbitMQ connection URL.
+  - `url` *(string)*: RabbitMQ connection URL.
 
 ---
 
 ### Publishing Methods
 
 - **`publish(queue: string, message: Buffer | string, options?: Options.Publish): Promise<void>`**  
-  Publishes a message directly to a queue.  
-  **Parameters:**
-  - `queue` *(string)*: The name of the queue.
-  - `message` *(Buffer | string)*: The message to send.
-  - `options` *(Options.Publish, optional)*: Additional options for publishing.
+  Publishes a message to a queue.  
+  - `queue` *(string)*: Queue name.
+  - `message` *(Buffer | string)*: Message content.
+  - `options` *(Options.Publish, optional)*: Publish options.
 
 - **`publishToExchange(exchange: string, routingKey: string, message: Buffer | string, type?: string, options?: Options.Publish): Promise<void>`**  
-  Publishes a message to a specified exchange with a routing key.  
-  **Parameters:**
-  - `exchange` *(string)*: The name of the exchange.
-  - `routingKey` *(string)*: The routing key for the message.
-  - `message` *(Buffer | string)*: The message to send.
-  - `type` *(string, optional)*: Exchange type (`"direct"`, `"topic"`, `"fanout"`, `"headers"`). Defaults to `"topic"`.
-  - `options` *(Options.Publish, optional)*: Additional options for publishing.
+  Publishes a message to an exchange.  
+  - `exchange` *(string)*: Exchange name.
+  - `routingKey` *(string)*: Routing key.
+  - `message` *(Buffer | string)*: Message content.
+  - `type` *(string, optional)*: Exchange type. Default is `"topic"`.
+  - `options` *(Options.Publish, optional)*: Publish options.
 
 ---
 
 ### Queue and Consumer Methods
 
 - **`setupQueue(queue: string, options?: Options.AssertQueue): Promise<void>`**  
-  Creates a queue with optional configurations.  
-  **Parameters:**
-  - `queue` *(string)*: The name of the queue.
-  - `options` *(Options.AssertQueue, optional)*: Configuration options for the queue.
-
-- **`consume(queue: string, onMessage: (msg: Message) => Promise<void>): Promise<void>`**  
-  Consumes messages from a specified queue.  
-  **Parameters:**
-  - `queue` *(string)*: The name of the queue.
-  - `onMessage` *(function)*: A callback function to process received messages.
+  Sets up a queue.  
+  - `queue` *(string)*: Queue name.
+  - `options` *(Options.AssertQueue, optional)*: Queue options.
 
 - **`bindQueue(queue: string, exchange: string, routingKey: string): Promise<void>`**  
-  Binds a queue to a specified exchange with a routing key.  
-  **Parameters:**
-  - `queue` *(string)*: The name of the queue.
-  - `exchange` *(string)*: The name of the exchange.
-  - `routingKey` *(string)*: The routing key for binding.
+  Binds a queue to an exchange.  
+  - `queue` *(string)*: Queue name.
+  - `exchange` *(string)*: Exchange name.
+  - `routingKey` *(string)*: Routing key.
+
+- **`consume(queue: string, onMessage: (msg: Message) => Promise<void>): Promise<void>`**  
+  Consumes messages from a queue.  
+  - `queue` *(string)*: Queue name.
+  - `onMessage` *(function)*: Message handler.
 
 ---
 
-### Advanced Methods
+### Dead-Letter Methods
 
-- **`setupDeadLetterQueue(queue: string, dlx: string, dlq: string, dlxType?: string): Promise<void>`**  
-  Sets up a dead-letter queue and binds it to the main queue.  
-  **Parameters:**
-  - `queue` *(string)*: The primary queue name.
-  - `dlx` *(string)*: The dead-letter exchange name.
-  - `dlq` *(string)*: The dead-letter queue name.
-  - `dlxType` *(string, optional)*: Exchange type (`"direct"`, `"topic"`, `"fanout"`, `"headers"`). Defaults to `"topic"`.
+- **`setupDeadLetterQueue(queue: string, dlx: string, dlq: string, dlxType?: string, routingKey?: string): Promise<void>`**  
+  Sets up a DLQ.  
+  - `queue` *(string)*: Main queue.
+  - `dlx` *(string)*: Dead-letter exchange.
+  - `dlq` *(string)*: Dead-letter queue.
+  - `dlxType` *(string, optional)*: DLX type. Default is `"topic"`.
+  - `routingKey` *(string, optional)*: Routing key for DLQ. Default is `"#"` (all).
 
 ---
 
@@ -244,15 +201,15 @@ await broker.setupDeadLetterQueue(
 - **`closeConnection(): Promise<void>`**  
   Closes the RabbitMQ connection and channel.
 
-
 ---
 
 ## Contributing
 
-We welcome contributions! Please follow the guidelines below:
+Contributions are welcome! Please follow these steps:
+
 1. Fork the repository.
-2. Create a new branch for your feature or bug fix.
-3. Submit a pull request with a clear description of your changes.
+2. Create a feature branch.
+3. Submit a pull request with a clear description.
 
 ---
 
@@ -264,5 +221,4 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 
 ## Contact
 
-For questions or support, please open an issue on the [GitHub repository](https://github.com/gabeodame/rabbitmq-broker) or email `support@anchordiv.com`.
-
+For questions or support, open an issue on the [GitHub repository](https://github.com/gabeodame/rabbitmq-broker) or email `support@anchordiv.com`.
