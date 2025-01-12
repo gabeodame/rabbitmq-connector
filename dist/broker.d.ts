@@ -20,6 +20,7 @@ declare class RabbitMQBroker {
      * @param options - Additional publish options.
      */
     publish(queue: string, message: Buffer | string, options?: Options.Publish): Promise<void>;
+    assertExchange(exchange: string, type: "direct" | "topic" | "fanout" | "headers", options?: Options.AssertExchange): Promise<void>;
     /**
      * Publishes a message to a specified exchange with a routing key.
      * @param exchange - The exchange name.

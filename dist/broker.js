@@ -75,6 +75,21 @@ class RabbitMQBroker {
             }
         });
     }
+    assertExchange(exchange_1, type_1) {
+        return __awaiter(this, arguments, void 0, function* (exchange, type, options = { durable: true }) {
+            if (!this.channel) {
+                throw new Error("RabbitMQ channel is not initialized. Call init() first.");
+            }
+            try {
+                yield this.channel.assertExchange(exchange, type, options);
+                console.log(`Exchange asserted: ${exchange}`);
+            }
+            catch (err) {
+                console.error(`Failed to assert exchange: ${exchange}`, err);
+                throw err;
+            }
+        });
+    }
     /**
      * Publishes a message to a specified exchange with a routing key.
      * @param exchange - The exchange name.
@@ -89,7 +104,7 @@ class RabbitMQBroker {
                 throw new Error("RabbitMQ channel is not initialized. Call init() first.");
             }
             try {
-                yield this.channel.assertExchange(exchange, type, { durable: true });
+                yield this.assertExchange(exchange, type, { durable: true });
                 this.channel.publish(exchange, routingKey, Buffer.isBuffer(message) ? message : Buffer.from(message), options);
                 console.log(`Message published to exchange: ${exchange}, routingKey: ${routingKey}, type: ${type}`);
             }

@@ -74,6 +74,26 @@ class RabbitMQBroker {
     }
   }
 
+  public async assertExchange(
+    exchange: string,
+    type: "direct" | "topic" | "fanout" | "headers",
+    options: Options.AssertExchange = { durable: true }
+  ): Promise<void> {
+    if (!this.channel) {
+      throw new Error(
+        "RabbitMQ channel is not initialized. Call init() first."
+      );
+    }
+
+    try {
+      await this.channel.assertExchange(exchange, type, options);
+      console.log(`Exchange asserted: ${exchange}`);
+    } catch (err) {
+      console.error(`Failed to assert exchange: ${exchange}`, err);
+      throw err;
+    }
+  }
+
   /**
    * Publishes a message to a specified exchange with a routing key.
    * @param exchange - The exchange name.
@@ -95,7 +115,7 @@ class RabbitMQBroker {
     }
 
     try {
-      await this.channel.assertExchange(exchange, type, { durable: true });
+      await this.assertExchange(exchange, type, { durable: true });
       this.channel.publish(
         exchange,
         routingKey,
