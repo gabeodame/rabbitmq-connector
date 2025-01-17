@@ -1,10 +1,13 @@
 pipeline {
     agent {
-        docker { image 'node:14' }
+        docker {
+            image 'node:14'
+            args '-v /tmp:/tmp' // Optional: Add any additional Docker args
+        }
     }
 
     environment {
-        NPM_CACHE = '.npm' // Optional: Set npm cache directory
+        NPM_CACHE = '.npm'
     }
 
     stages {
@@ -28,7 +31,6 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                // Replace with actual test logic if implemented
                 sh 'npm test || echo "No tests available."'
             }
         }
