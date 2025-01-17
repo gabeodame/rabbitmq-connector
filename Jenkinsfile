@@ -41,9 +41,9 @@ pipeline {
     }
 
     post {
-        // always {
-        //     archiveArtifacts artifacts: '**/build/**/*', fingerprint: true
-        // }
+        always {
+            archiveArtifacts artifacts: '**/build/**/*', fingerprint: true
+        }
         success {
             echo 'Pipeline completed successfully.'
         }
