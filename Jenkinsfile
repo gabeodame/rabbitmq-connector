@@ -20,7 +20,7 @@ pipeline {
             steps {
                 sh 'npm install --cache $NPM_CACHE'
             }
-        }`
+        }
 
         stage('Build') {
             steps {
