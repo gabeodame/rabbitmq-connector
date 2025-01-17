@@ -1,12 +1,10 @@
 pipeline {
-    agent any
+   agent {
+        docker { image 'node:14' }
+    }
 
     environment {
         NPM_CACHE = '.npm' // Optional: Set npm cache directory
-    }
-
-      agent {
-        docker { image 'node:14' }
     }
 
     stages {
