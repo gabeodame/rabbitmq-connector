@@ -75,6 +75,44 @@ class RabbitMQBroker {
   }
 
   /**
+   * Publishes a message to a specified exchange with a routing key.
+   * @param exchange - The exchange name.
+   * @param routingKey - The routing key.
+   * @param message - The message to publish.
+   * @param type - The type of the exchange.
+   * @param options - Additional publish options.
+   */
+  public async publishToExchange(
+    exchange: string,
+    routingKey: string,
+    message: Buffer | string,
+    type: "direct" | "topic" | "fanout" | "headers" = "topic",
+    options: Options.Publish = {}
+  ): Promise<void> {
+    if (!this.channel) {
+      throw new Error(
+        "RabbitMQ channel is not initialized. Call init() first."
+      );
+    }
+
+    try {
+      await this.assertExchange(exchange, type, { durable: true });
+      this.channel.publish(
+        exchange,
+        routingKey,
+        Buffer.isBuffer(message) ? message : Buffer.from(message),
+        options
+      );
+      console.log(
+        `Message published to exchange: ${exchange}, routingKey: ${routingKey}, type: ${type}`
+      );
+    } catch (err) {
+      console.error("Failed to publish message to exchange:", err);
+      throw err;
+    }
+  }
+
+  /**
    * Asserts an exchange.
    * @param exchange - The exchange name.
    * @param type - The type of the exchange.
