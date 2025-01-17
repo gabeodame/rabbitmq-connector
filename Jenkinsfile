@@ -1,5 +1,5 @@
 pipeline {
-   agent {
+    agent {
         docker { image 'node:14' }
     }
 
@@ -24,7 +24,6 @@ pipeline {
             steps {
                 sh 'npm run build && node -v'
             }
-            
         }
 
         stage('Run Tests') {
