@@ -5,6 +5,10 @@ pipeline {
         NPM_CACHE = '.npm' // Optional: Set npm cache directory
     }
 
+      agent {
+        docker { image 'node:14' }
+    }
+
     stages {
         stage('Checkout Code') {
             steps {
@@ -16,12 +20,13 @@ pipeline {
             steps {
                 sh 'npm install --cache $NPM_CACHE'
             }
-        }
+        }`
 
         stage('Build') {
             steps {
-                sh 'npm run build'
+                sh 'npm run build && node -v'
             }
+            
         }
 
         stage('Run Tests') {
