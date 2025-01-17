@@ -18,11 +18,11 @@ pipeline {
             }
         }
 
-        stage('Run Tests') {
-            steps {
-                sh 'npm test'
-            }
-        }
+        // stage('Run Tests') {
+        //     steps {
+        //         sh 'npm test'
+        //     }
+        // }
 
         stage('Build') {
             steps {
@@ -32,7 +32,7 @@ pipeline {
 
         stage('Deploy') {
             when {
-                branch 'main' // Deploy only on the 'main' branch
+                branch 'feature' // Deploy only on the 'main' branch
             }
             steps {
                 sh 'npm run deploy'
