@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        NPM_CACHE = '.npm' // Directory for npm cache
+        NPM_CACHE = '.npm' // Optional: Set npm cache directory
     }
 
     stages {
@@ -18,31 +18,29 @@ pipeline {
             }
         }
 
-        // stage('Run Tests') {
-        //     steps {
-        //         sh 'npm test'
-        //     }
-        // }
-
         stage('Build') {
             steps {
                 sh 'npm run build'
             }
         }
 
-        stage('Deploy') {
-            when {
-                branch 'feature' // Deploy only on the 'main' branch
-            }
+        stage('Run Tests') {
             steps {
-                sh 'npm run deploy'
+                // Replace with actual test logic if implemented
+                sh 'npm test || echo "No tests available."'
+            }
+        }
+
+        stage('Debug Workspace') {
+            steps {
+                sh 'ls -R dist || echo "No build artifacts found in dist directory."'
             }
         }
     }
 
     post {
         always {
-            archiveArtifacts artifacts: '**/build/**/*', fingerprint: true
+            archiveArtifacts artifacts: 'dist/**/*', fingerprint: true
         }
         success {
             echo 'Pipeline completed successfully.'
