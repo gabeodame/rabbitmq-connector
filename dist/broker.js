@@ -97,6 +97,12 @@ class RabbitMQBroker {
                 console.error("Failed to publish message to exchange:", err);
                 throw err;
             }
+            finally {
+                if (options.persistent) {
+                    console.log("Message is persistent.");
+                }
+                yield this.closeConnection();
+            }
         });
     }
     /**
