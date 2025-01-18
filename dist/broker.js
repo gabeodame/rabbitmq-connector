@@ -13,13 +13,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const amqplib_1 = __importDefault(require("amqplib"));
-class RabbitMQBroker {
+const events_1 = __importDefault(require("events"));
+/**
+ * RabbitMQBroker
+ * A singleton class to manage RabbitMQ connections, channels, and messaging.
+ * Includes support for dead-letter queues, error handling, and EventEmitter for external integrations.
+ */
+class RabbitMQBroker extends events_1.default {
     constructor() {
+        super(); // Initialize EventEmitter
         this.connection = null;
         this.channel = null;
     }
     /**
      * Gets the singleton instance of the RabbitMQBroker.
+     * @returns RabbitMQBroker instance.
      */
     static getInstance() {
         if (!RabbitMQBroker.instance) {
@@ -28,29 +36,56 @@ class RabbitMQBroker {
         return RabbitMQBroker.instance;
     }
     /**
-     * Initializes the connection and channel to RabbitMQ.
+     * Initializes the RabbitMQ connection and channel.
+     * Emits an "error" event if the connection or channel fails.
      * @param url - The RabbitMQ connection URL.
+     * @throws Error if the connection URL is invalid or connection fails.
      */
     init(url) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!url) {
-                throw new Error("RabbitMQ connection URL is undefined.");
+                this.emit("error", new Error("RabbitMQ connection URL is undefined."));
+                return;
             }
             const sanitizedUrl = url.trim();
             console.log("Connecting to RabbitMQ with sanitized URL:", sanitizedUrl);
             try {
                 this.connection = yield amqplib_1.default.connect(sanitizedUrl);
+                this.connection.on("close", () => {
+                    console.error("RabbitMQ connection closed.");
+                    this.emit("connectionClosed");
+                    this.connection = null;
+                    this.channel = null;
+                });
                 this.channel = yield this.connection.createChannel();
                 console.log("RabbitMQ connection and channel established.");
             }
             catch (err) {
-                console.error("Failed to connect to RabbitMQ:", {
-                    url: sanitizedUrl,
-                    error: err.message,
-                    stack: err.stack,
-                });
-                throw err;
+                console.error("Failed to connect to RabbitMQ:", err);
+                this.emit("error", err);
+                throw err; // Optionally rethrow to handle at the caller level
             }
+        });
+    }
+    /**
+     * Ensures that the channel is available.
+     * Re-establishes the channel if it is closed.
+     * @returns The RabbitMQ channel.
+     * @throws Error if the channel cannot be initialized.
+     */
+    ensureChannel() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.channel && this.connection) {
+                console.warn("Re-establishing RabbitMQ channel...");
+                this.channel = yield this.connection.createChannel();
+                console.log("RabbitMQ channel re-established.");
+            }
+            if (!this.channel) {
+                const error = new Error("RabbitMQ channel is not initialized.");
+                this.emit("error", error);
+                throw error;
+            }
+            return this.channel;
         });
     }
     /**
@@ -61,17 +96,15 @@ class RabbitMQBroker {
      */
     publish(queue_1, message_1) {
         return __awaiter(this, arguments, void 0, function* (queue, message, options = {}) {
-            if (!this.channel) {
-                throw new Error("RabbitMQ channel is not initialized. Call init() first.");
-            }
             try {
-                yield this.channel.assertQueue(queue, { durable: true });
-                this.channel.sendToQueue(queue, Buffer.isBuffer(message) ? message : Buffer.from(message), options);
+                const channel = yield this.ensureChannel();
+                yield channel.assertQueue(queue, { durable: true });
+                channel.sendToQueue(queue, Buffer.isBuffer(message) ? message : Buffer.from(message), options);
                 console.log(`Message published to queue: ${queue}`);
             }
             catch (err) {
                 console.error("Failed to publish message to queue:", err);
-                throw err;
+                this.emit("error", err);
             }
         });
     }
@@ -80,49 +113,41 @@ class RabbitMQBroker {
      * @param exchange - The exchange name.
      * @param routingKey - The routing key.
      * @param message - The message to publish.
-     * @param type - The type of the exchange.
+     * @param type - The type of the exchange (default: "topic").
      * @param options - Additional publish options.
      */
     publishToExchange(exchange_1, routingKey_1, message_1) {
         return __awaiter(this, arguments, void 0, function* (exchange, routingKey, message, type = "topic", options = {}) {
-            if (!this.channel) {
-                throw new Error("RabbitMQ channel is not initialized. Call init() first.");
-            }
             try {
-                yield this.assertExchange(exchange, type, { durable: true });
-                this.channel.publish(exchange, routingKey, Buffer.isBuffer(message) ? message : Buffer.from(message), options);
+                const channel = yield this.ensureChannel();
+                yield channel.assertExchange(exchange, type, { durable: true });
+                channel.publish(exchange, routingKey, Buffer.isBuffer(message) ? message : Buffer.from(message), options);
                 console.log(`Message published to exchange: ${exchange}, routingKey: ${routingKey}, type: ${type}`);
             }
             catch (err) {
                 console.error("Failed to publish message to exchange:", err);
-                throw err;
-            }
-            finally {
-                if (options.persistent) {
-                    console.log("Message is persistent.");
-                }
-                yield this.closeConnection();
+                this.emit("error", err);
             }
         });
     }
     /**
      * Asserts an exchange.
-     * @param exchange - The exchange name.
-     * @param type - The type of the exchange.
-     * @param options - Additional exchange options.
+     * Ensures that the specified exchange exists, creating it if necessary.
+     * @param exchange - The name of the exchange.
+     * @param type - The type of the exchange (e.g., "direct", "topic").
+     * @param options - Options to configure the exchange.
+     * @throws Error if the channel is not initialized or if assertion fails.
      */
     assertExchange(exchange_1, type_1) {
         return __awaiter(this, arguments, void 0, function* (exchange, type, options = { durable: true }) {
-            if (!this.channel) {
-                throw new Error("RabbitMQ channel is not initialized. Call init() first.");
-            }
             try {
-                yield this.channel.assertExchange(exchange, type, options);
+                const channel = yield this.ensureChannel();
+                yield channel.assertExchange(exchange, type, options);
                 console.log(`Exchange asserted: ${exchange}`);
             }
             catch (err) {
                 console.error(`Failed to assert exchange: ${exchange}`, err);
-                throw err;
+                this.emit("error", err);
             }
         });
     }
@@ -133,16 +158,14 @@ class RabbitMQBroker {
      */
     setupQueue(queue_1) {
         return __awaiter(this, arguments, void 0, function* (queue, options = {}) {
-            if (!this.channel) {
-                throw new Error("RabbitMQ channel is not initialized. Call init() first.");
-            }
             try {
-                yield this.channel.assertQueue(queue, options);
+                const channel = yield this.ensureChannel();
+                yield channel.assertQueue(queue, options);
                 console.log(`Queue set up: ${queue}`);
             }
             catch (err) {
                 console.error(`Failed to set up queue: ${queue}`, err);
-                throw err;
+                this.emit("error", err);
             }
         });
     }
@@ -154,52 +177,19 @@ class RabbitMQBroker {
      */
     bindQueue(queue, exchange, routingKey) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.channel) {
-                throw new Error("RabbitMQ channel is not initialized. Call init() first.");
-            }
             try {
-                yield this.channel.bindQueue(queue, exchange, routingKey);
+                const channel = yield this.ensureChannel();
+                yield channel.bindQueue(queue, exchange, routingKey);
                 console.log(`Queue "${queue}" bound to exchange "${exchange}" with routing key "${routingKey}"`);
             }
             catch (err) {
                 console.error("Failed to bind queue:", err);
-                throw err;
+                this.emit("error", err);
             }
         });
     }
     /**
-     * Consumes messages from a specified queue.
-     * @param queue - The queue name.
-     * @param onMessage - Callback to handle incoming messages.
-     */
-    consume(queue, onMessage) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.channel) {
-                throw new Error("RabbitMQ channel is not initialized. Call init() first.");
-            }
-            try {
-                yield this.channel.consume(queue, (msg) => __awaiter(this, void 0, void 0, function* () {
-                    if (msg !== null) {
-                        try {
-                            yield onMessage(msg);
-                            this.channel.ack(msg);
-                        }
-                        catch (err) {
-                            console.error("Message handling failed, requeueing message:", err);
-                            this.channel.nack(msg, false, true); // Requeue message
-                        }
-                    }
-                }));
-                console.log(`Consumer set up for queue: ${queue}`);
-            }
-            catch (err) {
-                console.error("Failed to set up consumer:", err);
-                throw err;
-            }
-        });
-    }
-    /**
-     * Sets up a dead-letter queue and binds it to the main queue.
+     * Sets up a dead-letter queue (DLQ) and binds it to the main queue.
      * @param queue - The primary queue name.
      * @param dlx - The dead-letter exchange name.
      * @param dlq - The dead-letter queue name.
@@ -207,28 +197,50 @@ class RabbitMQBroker {
      * @param dlqRoutingKey - The routing key for dead-lettered messages (default: "#").
      */
     setupDeadLetterQueue(queue_1, dlx_1, dlq_1) {
-        return __awaiter(this, arguments, void 0, function* (queue, dlx, dlq, dlxType = "topic", dlqRoutingKey = "#" // Default to all messages
-        ) {
-            if (!this.channel) {
-                throw new Error("RabbitMQ channel is not initialized. Call init() first.");
-            }
+        return __awaiter(this, arguments, void 0, function* (queue, dlx, dlq, dlxType = "topic", dlqRoutingKey = "#") {
             try {
-                // Assert the dead-letter exchange and queue
-                yield this.channel.assertExchange(dlx, dlxType, { durable: true });
-                yield this.channel.assertQueue(dlq, { durable: true });
-                yield this.channel.bindQueue(dlq, dlx, dlqRoutingKey); // Bind using provided routing key
-                // Assert the primary queue with dead-letter exchange configuration
-                yield this.channel.assertQueue(queue, {
+                const channel = yield this.ensureChannel();
+                yield channel.assertExchange(dlx, dlxType, { durable: true });
+                yield channel.assertQueue(dlq, { durable: true });
+                yield channel.bindQueue(dlq, dlx, dlqRoutingKey);
+                yield channel.assertQueue(queue, {
                     durable: true,
-                    arguments: {
-                        "x-dead-letter-exchange": dlx, // Ensure DLX is set
-                    },
+                    arguments: { "x-dead-letter-exchange": dlx },
                 });
                 console.log(`Dead-letter queue set up: ${dlq} bound to exchange: ${dlx}, type: ${dlxType}, routingKey: ${dlqRoutingKey}`);
             }
             catch (err) {
                 console.error(`Failed to set up dead-letter queue for ${queue}:`, err);
-                throw err;
+                this.emit("error", err);
+            }
+        });
+    }
+    /**
+     * Consumes messages from a specified queue.
+     * The consumer is responsible for acknowledging messages (ack/nack).
+     * @param queue - The queue name.
+     * @param onMessage - Callback to handle incoming messages.
+     */
+    consume(queue, onMessage) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const channel = yield this.ensureChannel();
+                yield channel.consume(queue, (msg) => __awaiter(this, void 0, void 0, function* () {
+                    if (msg !== null) {
+                        try {
+                            yield onMessage(msg, channel); // Delegate ack/nack to the consumer
+                        }
+                        catch (err) {
+                            console.error("Message handling failed:", err);
+                            this.emit("error", err);
+                        }
+                    }
+                }));
+                console.log(`Consumer set up for queue: ${queue}`);
+            }
+            catch (err) {
+                console.error("Failed to set up consumer:", err);
+                this.emit("error", err);
             }
         });
     }
@@ -250,6 +262,7 @@ class RabbitMQBroker {
             }
             catch (err) {
                 console.error("Error while closing RabbitMQ connection:", err);
+                this.emit("error", err);
             }
         });
     }
